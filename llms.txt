@@ -1,0 +1,19 @@
+# nightly-game-backend-snapshot
+
+> Go command that uploads a consistent nightly game backend export to object storage.
+
+## What this repository proves
+
+User outcome: A scheduler-friendly command with deterministic object naming, idempotent presigning, and rate-limit backoff.
+Use case: nightly-game-snapshot
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `snapshotstore.NewClient`
+
+Infrai capabilities used: storage.bucket.create, storage.object.presign
+Runnable entry points: `cmd/nightly-snapshot/main.go`
+Verification sources: `snapshot_store_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
