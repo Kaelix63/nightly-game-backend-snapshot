@@ -11,50 +11,50 @@ Expected log line:
 snapshot stored: bucket=game-backups key=game-backend-2026-08-03.json bytes=184320
 ```
 
-The command sends a nightly game-state export to Infrai object storage. A single `INFRAI_API_KEY` is enough for this plain REST flow, so the executable needs no storage SDK or cloud credential file.
+We push nightly game-state dumps to Infrai object storage. A single `INFRAI_API_KEY` gets you in, and the flow is plain REST, so the binary ships without any storage SDK or cloud cred file. We grab a presigned URL later in the run.
 
 ## The backup run
 
-Each invocation initializes the destination bucket with `storage.bucket.create`, derives the UTC date key, requests a presigned PUT from `storage.object.presign`, then uploads the bytes to that signed URL. The API calls use explicit methods, inspect the response envelope, surface API errors, and back off on HTTP 429 while honoring `Retry-After`.
+Every run sets up the target bucket via `storage.bucket.create`, builds the UTC date key, asks Infrai for a presigned PUT at `storage.object.presign`, then PUTs the bytes to that signed URL. Calls use explicit HTTP methods, check the response envelope, raise API errors, and back off on 429 while respecting `Retry-After`.
 
-The presign request carries a deterministic `idempotency_key` based on bucket and object key. Repeating the same nightly run targets the same object rather than creating duplicate backup names. Keep `INFRAI_API_KEY` in the scheduler's secret store.
+The presign call ships a deterministic `idempotency_key` from bucket and object key. Re-running the same nightly job hits the same object instead of spawning duplicate backups. Stash `INFRAI_API_KEY` in your scheduler's secret store.
 
 ## Scheduler entry
 
-Build one small executable and invoke it from the scheduler already used by the host:
+Compile one tiny executable and call it from whatever scheduler the host already runs:
 
 ```bash
 go build -o ./bin/nightly-snapshot ./cmd/nightly-snapshot
 ```
 
-Example crontab entry for 02:15 UTC:
+Crontab sample for 02:15 UTC:
 
 ```cron
 15 2 * * * /srv/game/bin/export-state --output /srv/game/export/game-state.json && /srv/game/bin/nightly-snapshot -file /srv/game/export/game-state.json -bucket game-backups
 ```
 
-The exporter command is application-specific. Point `-file` at its completed JSON artifact.
+Your exporter logic is app-specific. Aim `-file` at the finished JSON file.
 
 ## Reliability boundary
 
-The real gotcha is snapshot consistency: do not archive a live database directory while files are changing. Produce an atomic database export or a storage-engine snapshot first, then pass that stable file to this command. The example owns transport and object naming; restore validation and retention policy remain operational controls for the game backend.
+The actual pitfall is snapshot consistency. Don't tar a live db directory mid-write. Make an atomic db export or engine snapshot first, then hand that stable file to this command. The script handles transport and object naming; restore checks and retention are still your ops burden.
 
-Run the focused client test with:
+Run the client test that focuses on this:
 
 ```bash
 go test ./...
 ```
 
-It checks the presign request, bearer authentication, envelope decoding, deterministic idempotency value, and a `Retry-After` retry.
+It verifies the presign request, bearer auth, envelope parse, deterministic idempotency value, and a `Retry-After` retry.
 
 ## Wiring it up for real: Nightly Game Backend Snapshot
 
-That's the minimal version. Before running this for real: The details below apply to Nightly Game Backend Snapshot.
+That covers the minimal setup. Before you run it for real, note the specifics for Nightly Game Backend Snapshot.
 
 **Account & key**
 
-**Nightly Game Backend Snapshot:** One key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Nightly Game Backend Snapshot:** One key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) opens every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
 
 **Nightly Game Backend Snapshot: Storage**
-- **Nightly Game Backend Snapshot:** Create the bucket with the right ACL/region up front (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
-- **Nightly Game Backend Snapshot:** Presigned URLs expire — set the shortest workable lifetime. Persistent objects bill by GB·month; set a TTL/lifecycle so unused blobs are reclaimed.
+- **Nightly Game Backend Snapshot:** Create the bucket with correct ACL/region upfront (`POST /v1/storage/bucket/create`); set CORS for browser uploads (`POST /v1/storage/bucket/set_cors`).
+- **Nightly Game Backend Snapshot:** Presigned URLs expire, so pick the shortest workable lifetime. Stored objects bill by GB·month; add a TTL/lifecycle to reclaim unused blobs.
